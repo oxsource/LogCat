@@ -1,5 +1,6 @@
 package com.pizzk.logcat
 
+import android.app.Application
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
@@ -7,11 +8,12 @@ import android.os.Message
 import android.util.Log
 import java.io.File
 
-object Logcat {
-    private const val NAMESPACE = "pizzk-logs"
+object RoselleLog {
+    private const val NAMESPACE = "roselle-logs"
+    private var application: Application? = null
     private val callback = Callback()
     private var handler: Handler? = null
-    private var logFmt: LogFormat? = null
+    private var logFmt: Format? = null
     private val allowLevels: MutableList<String> = listOf("W", "E").toMutableList()
 
     private val logsMap: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
@@ -22,16 +24,17 @@ object Logcat {
         Pair("E", { t, m, e -> Log.e(t, m, e) }),
     )
 
-    fun active(context: Context, fmt: LogFormat = LogFormat()) {
+    fun setup(app: Application, fmt: Format = Format()) {
+        application = app
         logFmt = fmt
         kotlin.runCatching {
             val thread = HandlerThread(NAMESPACE)
             thread.start()
             val handler = Handler(thread.looper, callback)
-            val msg = handler.obtainMessage(Callback.WHAT_OPEN)
-            msg.obj = path(context.applicationContext).absolutePath
+            val msg = handler.obtainMessage(Callback.WHAT_SETUP)
+            msg.obj = path(app.applicationContext).absolutePath
             handler.sendMessage(msg)
-            Logcat.handler = handler
+            RoselleLog.handler = handler
         }.onFailure { it.printStackTrace() }
     }
 
@@ -40,17 +43,17 @@ object Logcat {
         allowLevels.addAll(levels.toList())
     }
 
-    fun close() {
-        val handler = Logcat.handler ?: return
+    fun flush() {
+        val handler = RoselleLog.handler ?: return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
-            handler.sendEmptyMessage(Callback.WHAT_CLOSE)
+            handler.sendEmptyMessage(Callback.WHAT_FLUSH)
         }.onFailure { it.printStackTrace() }
     }
 
     fun path(context: Context): File {
         val cache: File = context.externalCacheDir ?: context.cacheDir
-        val file = File(cache, "${NAMESPACE}${File.separator}circle.log")
+        val file = File(cache, "${NAMESPACE}${File.separator}roselle.log")
         val parent = file.parentFile ?: return file
         if (parent.exists()) return file
         parent.mkdirs()
@@ -68,17 +71,18 @@ object Logcat {
     fun e(tag: String?, msg: String?, ex: Throwable? = null) = log("E", tag, msg, ex)
 
     private fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
+        val app = application ?: return
         if (tag.isNullOrEmpty() || value.isNullOrEmpty()) return
         if (!BuildConfig.DEBUG && !allowLevels.contains(level)) return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
-            val handler = Logcat.handler ?: return@runCatching
+            val handler = RoselleLog.handler ?: return@runCatching
             val block = logsMap[level] ?: return@runCatching
             if (BuildConfig.DEBUG || level == "E") block(tag, value, ex)
-            val fmt = logFmt ?: LogFormat()
+            val fmt = logFmt ?: Format()
             logFmt = fmt
             val msg = handler.obtainMessage(Callback.WHAT_SINK)
-            msg.obj = fmt.of(level, tag, value, ex)
+            msg.obj = fmt.of(app, level, tag, value, ex)
             handler.sendMessage(msg)
         }.onFailure { it.printStackTrace() }
     }
@@ -88,23 +92,19 @@ object Logcat {
 
         override fun handleMessage(msg: Message): Boolean {
             when (msg.what) {
-                WHAT_OPEN -> {
+                WHAT_SETUP -> {
                     val path: String = (msg.obj as? String) ?: return true
                     if (path.isEmpty()) return true
                     thread = Thread.currentThread() as? HandlerThread
                     thread ?: return true
-                    CircleJournal.open(path, 10 * 1024 * 1024L, 0.25f)
+                    Roselle.setup(path, 5 * 1024L)
                 }
                 WHAT_SINK -> {
                     val value: String = (msg.obj as? String) ?: return true
                     if (value.isEmpty()) return true
-                    CircleJournal.sink(value)
+                    Roselle.sink(value, value.length)
                 }
-                WHAT_CLOSE -> {
-                    CircleJournal.close()
-                    thread?.quit()
-                    thread = null
-                }
+                WHAT_FLUSH -> Roselle.flush()
             }
             return true
         }
@@ -112,9 +112,9 @@ object Logcat {
         fun alive(): Boolean = thread?.isAlive == true
 
         companion object {
-            const val WHAT_OPEN = 1001
+            const val WHAT_SETUP = 1001
             const val WHAT_SINK = 1002
-            const val WHAT_CLOSE = 1003
+            const val WHAT_FLUSH = 1003
         }
     }
 }
