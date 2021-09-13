@@ -91,22 +91,28 @@ object RoselleLog {
         private var thread: HandlerThread? = null
 
         override fun handleMessage(msg: Message): Boolean {
-            when (msg.what) {
-                WHAT_SETUP -> {
-                    val path: String = (msg.obj as? String) ?: return true
-                    if (path.isEmpty()) return true
-                    thread = Thread.currentThread() as? HandlerThread
-                    thread ?: return true
-                    Roselle.setup(path, 5 * 1024L)
+            kotlin.runCatching {
+                when (msg.what) {
+                    WHAT_SETUP -> onSetup(msg)
+                    WHAT_SINK -> onSink(msg)
+                    WHAT_FLUSH -> Roselle.flush()
                 }
-                WHAT_SINK -> {
-                    val value: String = (msg.obj as? String) ?: return true
-                    if (value.isEmpty()) return true
-                    Roselle.sink(value, value.length)
-                }
-                WHAT_FLUSH -> Roselle.flush()
-            }
+            }.onFailure { it.printStackTrace() }
             return true
+        }
+
+        private fun onSetup(msg: Message) {
+            val path: String = (msg.obj as? String) ?: return
+            if (path.isEmpty()) return
+            thread = Thread.currentThread() as? HandlerThread
+            thread ?: return
+            Roselle.setup(path, 5 * 1024 * 1024L)
+        }
+
+        private fun onSink(msg: Message) {
+            val value: String = (msg.obj as? String) ?: return
+            if (value.isEmpty()) return
+            Roselle.sink(value, value.length)
         }
 
         fun alive(): Boolean = thread?.isAlive == true

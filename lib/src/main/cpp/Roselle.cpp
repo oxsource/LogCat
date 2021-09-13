@@ -8,9 +8,11 @@
 #include "Swaps.h"
 
 Roselle::Roselle(const char *path, long size) : path(path) {
-    const long max_size = 10 * 1024 * 1024;
-    const long total = size > max_size ? max_size : size;
+    const long max_size = 5 * 1024 * 1024;
+    long total = size > max_size ? max_size : size;
     this->caches = new Caches();
+    const long min_size = 2 * caches->sizes();
+    total = total < min_size ? min_size : total;
     this->mmaps = new MMaps(path, total);
     this->swaps = new Swaps(path, total);
     //
@@ -80,7 +82,8 @@ void Roselle::flush() {
             break;
         }
         close(sfd);
-        LOGW("%s flush buffer@%s finish: limits=%ld, counts=%ld\n", this->name(), buffer->name(), limits, counts);
+        LOGW("%s flush buffer@%s: limits=%ld, counts=%ld\n", this->name(), buffer->name(), limits,
+             counts);
     }
     close(fd);
 }

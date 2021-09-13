@@ -10,8 +10,8 @@
 #include <cstdio>
 #include <android/log.h>
 
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "LOGCAT_BUFFER", __VA_ARGS__)
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "LOGCAT_BUFFER", __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "ROSELLE_LOGCAT", __VA_ARGS__)
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "ROSELLE_LOGCAT", __VA_ARGS__)
 
 //#define LOGW(...) printf(__VA_ARGS__)
 //#define LOGD(...) printf(__VA_ARGS__)
