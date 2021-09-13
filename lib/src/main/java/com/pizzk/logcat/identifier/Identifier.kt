@@ -1,6 +1,6 @@
 package com.pizzk.logcat.identifier
 
-object Identifier {
+internal object Identifier {
     private var alias: String = ""
     private var ids: String = ""
 

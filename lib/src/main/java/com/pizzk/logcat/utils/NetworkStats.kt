@@ -1,10 +1,10 @@
-package com.pizzk.logcat.network
+package com.pizzk.logcat.utils
 
 import android.content.Context
 import android.net.*
 import android.os.Build
 
-object NetworkStats {
+internal object NetworkStats {
 
     enum class Transport {
         NONE,

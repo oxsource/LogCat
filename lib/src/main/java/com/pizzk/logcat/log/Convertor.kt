@@ -6,10 +6,10 @@ import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.*
 
-open class PrintFormat {
+internal class Convertor {
     private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.sss", Locale.SIMPLIFIED_CHINESE)
 
-    open fun of(
+    fun text(
         app: Application,
         level: String,
         tag: String,

@@ -1,6 +1,6 @@
 package com.pizzk.logcat.identifier
 
-data class Hardware(
+internal data class Device(
     /**
      * 常规信息
      * phoneModel-手机型号

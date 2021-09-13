@@ -1,30 +1,28 @@
 package com.pizzk.logcat.report
 
 import android.app.Application
-import com.pizzk.logcat.identifier.Hardware
+import com.pizzk.logcat.identifier.Device
 import com.pizzk.logcat.identifier.Identifier
-import com.pizzk.logcat.identifier.Software
-import org.json.JSONObject
+import com.pizzk.logcat.utils.JsonUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MetaProvider {
+open class MetaProvider {
     private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.SIMPLIFIED_CHINESE)
 
-    fun provide(context: Application): String {
+    open fun provide(context: Application): String {
         val map: MutableMap<String, Any> = mutableMapOf()
         map["ids"] = Identifier.getIds()
         map["alias"] = Identifier.getAlias()
         map["package"] = context.packageName
         map["version"] = version(context)
-        map["device"] = Hardware()
-        map["application"] = Software(context)
+        map["device"] = Device()
         map["datetime"] = sdf.format(Date())
-        return kotlin.runCatching {
-            val jbt = JSONObject(map.toMap())
-            return@runCatching jbt.toString()
-        }.getOrDefault("")
+        hook(map)
+        return JsonUtils.json(map)
     }
+
+    open fun hook(map: MutableMap<String, Any>): Unit = Unit
 
     private fun version(context: Application): String {
         return kotlin.runCatching {

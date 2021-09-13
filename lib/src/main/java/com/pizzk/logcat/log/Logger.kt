@@ -6,58 +6,67 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.Log
-import com.pizzk.logcat.BuildConfig
+import com.pizzk.logcat.state.States
 import java.io.File
 
-object Logger {
+internal object Logger {
     private const val NAMESPACE = "roselle-logs"
-    private var application: Application? = null
-    private val callback = Callback()
-    private var handler: Handler? = null
-    private var logFmt: PrintFormat? = null
-    private val allowLevels: MutableList<String> = listOf("W", "E").toMutableList()
-    private var callbackDestroy: () -> Unit = {}
+    const val V = "V"
+    const val I = "I"
+    const val D = "D"
+    const val W = "W"
+    const val E = "E"
 
-    private val logsMap: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
-        Pair("V", { t, m, e -> Log.v(t, m, e) }),
-        Pair("I", { t, m, e -> Log.i(t, m, e) }),
-        Pair("D", { t, m, e -> Log.d(t, m, e) }),
-        Pair("W", { t, m, e -> Log.w(t, m, e) }),
-        Pair("E", { t, m, e -> Log.e(t, m, e) }),
+    //private props
+    private val callback = Callback()
+    private val convertor = Convertor()
+    private var handler: Handler? = null
+    private var flushFinish: () -> Unit = {}
+    private var destroyFinish: () -> Unit = {}
+
+    private val logMaps: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
+        Pair(V, { t, m, e -> Log.v(t, m, e) }),
+        Pair(I, { t, m, e -> Log.i(t, m, e) }),
+        Pair(D, { t, m, e -> Log.d(t, m, e) }),
+        Pair(W, { t, m, e -> Log.w(t, m, e) }),
+        Pair(E, { t, m, e -> Log.e(t, m, e) }),
     )
 
-    fun setup(app: Application, fmt: PrintFormat = PrintFormat()) {
-        application = app
-        logFmt = fmt
-        kotlin.runCatching {
+    private fun prepare(setup: Boolean): Handler? {
+        if (!States.plan().loggable) return null
+        if (null != handler) return handler
+        if (!setup) return null
+        val context: Context = States.context() ?: return null
+        return kotlin.runCatching {
             val thread = HandlerThread(NAMESPACE)
-            thread.start()
             val handler = Handler(thread.looper, callback)
+            thread.start()
             val msg = handler.obtainMessage(Callback.WHAT_SETUP)
-            msg.obj = path(app.applicationContext).absolutePath
+            msg.obj = path(context).absolutePath
             handler.sendMessage(msg)
             Logger.handler = handler
-        }.onFailure { it.printStackTrace() }
+            return@runCatching handler
+        }.onFailure { it.printStackTrace() }.getOrNull()
     }
 
-    fun setAllowLevels(vararg levels: String) {
-        allowLevels.clear()
-        allowLevels.addAll(levels.toList())
-    }
-
-    fun flush() {
-        val handler = handler ?: return
+    fun flush(finish: () -> Unit) {
+        val handler = prepare(setup = false) ?: return finish()
         kotlin.runCatching {
-            if (!callback.alive()) return@runCatching
+            if (!callback.alive()) return finish()
+            flushFinish = finish
             handler.sendEmptyMessage(Callback.WHAT_FLUSH)
-        }.onFailure { it.printStackTrace() }
+            return@runCatching
+        }.onFailure {
+            it.printStackTrace()
+            finish()
+        }
     }
 
     fun destroy(finish: () -> Unit) {
-        val handler = handler ?: return finish()
+        val handler = prepare(setup = false) ?: return finish()
         kotlin.runCatching {
-            if (!callback.alive()) return@runCatching finish()
-            callbackDestroy = finish
+            if (!callback.alive()) return finish()
+            destroyFinish = finish
             handler.sendEmptyMessage(Callback.WHAT_DESTROY)
             return@runCatching
         }.onFailure {
@@ -75,29 +84,16 @@ object Logger {
         return file
     }
 
-    fun v(tag: String?, msg: String?, ex: Throwable? = null) = log("V", tag, msg, ex)
-
-    fun i(tag: String?, msg: String?, ex: Throwable? = null) = log("I", tag, msg, ex)
-
-    fun d(tag: String?, msg: String?, ex: Throwable? = null) = log("D", tag, msg, ex)
-
-    fun w(tag: String?, msg: String?, ex: Throwable? = null) = log("W", tag, msg, ex)
-
-    fun e(tag: String?, msg: String?, ex: Throwable? = null) = log("E", tag, msg, ex)
-
-    private fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
-        val app = application ?: return
+    fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
         if (tag.isNullOrEmpty() || value.isNullOrEmpty()) return
-        if (!BuildConfig.DEBUG && !allowLevels.contains(level)) return
+        logMaps[level]?.let { block -> block(tag, value, ex) }
+        if (!States.plan().logLevels.contains(level)) return
+        val context: Application = States.context() ?: return
+        val handler = prepare(setup = true) ?: return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
-            val handler = handler ?: return@runCatching
-            val block = logsMap[level] ?: return@runCatching
-            if (BuildConfig.DEBUG || level == "E") block(tag, value, ex)
-            val fmt = logFmt ?: PrintFormat()
-            logFmt = fmt
             val msg = handler.obtainMessage(Callback.WHAT_SINK)
-            msg.obj = fmt.of(app, level, tag, value, ex)
+            msg.obj = convertor.text(context, level, tag, value, ex)
             handler.sendMessage(msg)
         }.onFailure { it.printStackTrace() }
     }
@@ -108,16 +104,16 @@ object Logger {
         override fun handleMessage(msg: Message): Boolean {
             kotlin.runCatching {
                 when (msg.what) {
-                    WHAT_SETUP -> onSetup(msg)
-                    WHAT_SINK -> onSink(msg)
-                    WHAT_FLUSH -> Roselle.flush()
-                    WHAT_DESTROY -> onDestroy()
+                    WHAT_SETUP -> setup(msg)
+                    WHAT_SINK -> sink(msg)
+                    WHAT_FLUSH -> flush()
+                    WHAT_DESTROY -> destroy()
                 }
             }.onFailure { it.printStackTrace() }
             return true
         }
 
-        private fun onSetup(msg: Message) {
+        private fun setup(msg: Message) {
             val path: String = (msg.obj as? String) ?: return
             if (path.isEmpty()) return
             thread = Thread.currentThread() as? HandlerThread
@@ -125,15 +121,20 @@ object Logger {
             Roselle.setup(path, 5 * 1024 * 1024L)
         }
 
-        private fun onSink(msg: Message) {
+        private fun sink(msg: Message) {
             val value: String = (msg.obj as? String) ?: return
             if (value.isEmpty()) return
             Roselle.sink(value, value.length)
         }
 
-        private fun onDestroy() {
+        private fun flush() {
             Roselle.flush()
-            callbackDestroy()
+            flushFinish()
+        }
+
+        private fun destroy() {
+            Roselle.flush()
+            destroyFinish()
         }
 
         fun alive(): Boolean = thread?.isAlive == true

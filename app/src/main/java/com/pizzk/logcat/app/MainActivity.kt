@@ -3,7 +3,7 @@ package com.pizzk.logcat.app
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
-import com.pizzk.logcat.log.Logger
+import com.pizzk.logcat.Logcat
 import java.lang.Exception
 
 class MainActivity : AppCompatActivity() {
@@ -11,23 +11,22 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        Logger.setup(application)
         findViewById<View>(R.id.tv).setOnClickListener {
             count += 1
             when (count % 3) {
-                0 -> Logger.d("MainActivity", "debug clicked ${count}.", null)
-                1 -> Logger.e(
+                0 -> Logcat.d("MainActivity", "debug clicked ${count}.", null)
+                1 -> Logcat.e(
                     "MainActivity",
                     "error clicked ${count}.",
                     Exception("auto exception")
                 )
-                2 -> Logger.w("MainActivity", "warn clicked ${count}.", null)
+                2 -> Logcat.w("MainActivity", "warn clicked ${count}.", null)
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Logger.flush()
+        Logcat.submitIfy()
     }
 }

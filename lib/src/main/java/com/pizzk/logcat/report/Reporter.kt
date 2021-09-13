@@ -1,76 +1,70 @@
 package com.pizzk.logcat.report
 
-import android.app.Application
 import com.pizzk.logcat.identifier.Identifier
 import com.pizzk.logcat.log.Logger
-import com.pizzk.logcat.network.NetworkStats
+import com.pizzk.logcat.state.Defaults
+import com.pizzk.logcat.state.States
+import com.pizzk.logcat.utils.NetworkStats
 import java.io.BufferedInputStream
 import java.io.File
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-object Reporter {
-    private var context: Application? = null
+internal object Reporter {
     private var metaProvider: MetaProvider? = null
     private var syncProvider: SyncProvider? = null
-    private val plan: SyncProvider.Plan = SyncProvider.Plan()
-    private val threadPool: ExecutorService = Executors.newFixedThreadPool(1)
 
-    fun setup(context: Application, meta: MetaProvider, sync: SyncProvider) {
-        this.context = context
+    fun setup(meta: MetaProvider, sync: SyncProvider) {
         this.metaProvider = meta
         this.syncProvider = sync
     }
 
-    fun fetch() {
-        threadPool.execute {
-            val ids = Identifier.getIds()
-            val alias = Identifier.getAlias()
-            val value = syncProvider?.fetch(ids, alias) ?: return@execute
-            plan.enable = value.enable
-            plan.levels = value.levels
-            plan.upload = value.upload
-            plan.wifi = value.wifi
-            //caches
-        }
+    fun fetch(): Reporter {
+        val ids = Identifier.getIds()
+        val alias = Identifier.getAlias()
+        val value = syncProvider?.fetch(ids, alias) ?: return this
+        States.plan().of(value)
+        Defaults.savePlan()
+        return this
     }
 
-    fun plan(): SyncProvider.Plan = plan
-
-    fun submit() {
-        val syncProvider = syncProvider ?: return
-        val context = this.context ?: return
+    fun submit(): Reporter {
+        if (!States.plan().reportable) return this
+        val syncProvider = syncProvider ?: return this
+        val context = States.context() ?: return this
+        //network and data flow protect check
         val transport = NetworkStats.check(context)
-        //网络及流量保护检查
-        if (NetworkStats.Transport.NONE == transport) return
-        if (plan().wifi && NetworkStats.Transport.WIFI != transport) return
-        //
-        val file1: File = Logger.path(context)
-        if (!file1.exists() || file1.length() <= 0) return
-        val metas: String = metaProvider?.provide(context) ?: ""
-        val file2 = File("${file1.absolutePath}.meta")
-        kotlin.runCatching { file2.bufferedWriter().use { it.write(metas) } }
-        val files: List<File> = listOf(file1, file2)
-        //zip files
-        val zip: File? = kotlin.runCatching {
-            val zipFile = File("${file1.absolutePath}.zip")
-            if (zipFile.exists()) zipFile.delete()
-            ZipOutputStream(zipFile.outputStream()).use { outs ->
-                files.forEach { file ->
-                    val entry = ZipEntry(file.name)
-                    val ins: BufferedInputStream = file.inputStream().buffered()
-                    outs.putNextEntry(entry)
-                    ins.copyTo(outs)
-                }
-                outs.closeEntry()
+        if (NetworkStats.Transport.NONE == transport) return this
+        if (States.plan().reportWhileWifi && NetworkStats.Transport.WIFI != transport) return this
+        //collect log and meta file
+        val fLog: File = Logger.path(context)
+        val fZip = File("${fLog.absolutePath}.zip")
+        if (!fZip.exists() || fZip.length() <= 0) {
+            if (!fLog.exists() || fLog.length() <= 0) return this
+            val metas: String = metaProvider?.provide(context) ?: ""
+            val fMeta = File("${fLog.absolutePath}.meta")
+            kotlin.runCatching { fMeta.bufferedWriter().use { it.write(metas) } }
+            val files: List<File> = listOf(fLog, fMeta)
+            //zip files
+            kotlin.runCatching { zips(fZip, files) }.onFailure { fZip.delete() }
+            fMeta.delete()
+        }
+        if (!fZip.exists() || fZip.length() <= 0) return this
+        kotlin.runCatching { syncProvider.upload(fZip) }
+        if (fZip.exists()) fZip.delete()
+        return this
+    }
+
+    private fun zips(zipFile: File, files: List<File>) {
+        if (zipFile.exists()) zipFile.delete()
+        ZipOutputStream(zipFile.outputStream()).use { outs ->
+            files.forEach { file ->
+                val entry = ZipEntry(file.name)
+                val ins: BufferedInputStream = file.inputStream().buffered()
+                outs.putNextEntry(entry)
+                ins.copyTo(outs)
             }
-            return@runCatching zipFile
-        }.getOrNull()
-        file2.delete()
-        zip ?: return
-        kotlin.runCatching { syncProvider.upload(zip) }
-        zip.delete()
+            outs.closeEntry()
+        }
     }
 }

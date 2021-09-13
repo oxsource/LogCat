@@ -1,6 +1,6 @@
 package com.pizzk.logcat.log
 
-object Roselle {
+internal object Roselle {
     external fun setup(path: String, size: Long)
 
     external fun sink(msg: String, length: Int)

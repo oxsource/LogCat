@@ -1,17 +1,11 @@
 package com.pizzk.logcat.report
 
+import com.pizzk.logcat.state.Plan
 import java.io.File
 
-class SyncProvider {
+open class SyncProvider {
 
-    fun fetch(ids: String, alias: String): Plan? = null
+    open fun fetch(ids: String, alias: String): Plan? = null
 
-    fun upload(file: File) = Unit
-
-    data class Plan(
-        var enable: Boolean = false,
-        var levels: List<String> = emptyList(),
-        var upload: Boolean = false,
-        var wifi: Boolean = true
-    )
+    open fun upload(file: File) = Unit
 }
