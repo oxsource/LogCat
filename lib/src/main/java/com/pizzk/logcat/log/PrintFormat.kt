@@ -1,4 +1,4 @@
-package com.pizzk.logcat
+package com.pizzk.logcat.log
 
 import android.app.Application
 import java.io.PrintWriter
@@ -6,7 +6,7 @@ import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.*
 
-open class Format {
+open class PrintFormat {
     private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.sss", Locale.SIMPLIFIED_CHINESE)
 
     open fun of(

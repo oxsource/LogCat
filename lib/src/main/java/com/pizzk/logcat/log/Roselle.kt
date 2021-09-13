@@ -1,4 +1,4 @@
-package com.pizzk.logcat
+package com.pizzk.logcat.log
 
 object Roselle {
     external fun setup(path: String, size: Long)

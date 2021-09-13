@@ -1,4 +1,4 @@
-package com.pizzk.logcat
+package com.pizzk.logcat.log
 
 import android.app.Application
 import android.content.Context
@@ -6,15 +6,17 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.Log
+import com.pizzk.logcat.BuildConfig
 import java.io.File
 
-object RoselleLog {
+object Logger {
     private const val NAMESPACE = "roselle-logs"
     private var application: Application? = null
     private val callback = Callback()
     private var handler: Handler? = null
-    private var logFmt: Format? = null
+    private var logFmt: PrintFormat? = null
     private val allowLevels: MutableList<String> = listOf("W", "E").toMutableList()
+    private var callbackDestroy: () -> Unit = {}
 
     private val logsMap: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
         Pair("V", { t, m, e -> Log.v(t, m, e) }),
@@ -24,7 +26,7 @@ object RoselleLog {
         Pair("E", { t, m, e -> Log.e(t, m, e) }),
     )
 
-    fun setup(app: Application, fmt: Format = Format()) {
+    fun setup(app: Application, fmt: PrintFormat = PrintFormat()) {
         application = app
         logFmt = fmt
         kotlin.runCatching {
@@ -34,7 +36,7 @@ object RoselleLog {
             val msg = handler.obtainMessage(Callback.WHAT_SETUP)
             msg.obj = path(app.applicationContext).absolutePath
             handler.sendMessage(msg)
-            RoselleLog.handler = handler
+            Logger.handler = handler
         }.onFailure { it.printStackTrace() }
     }
 
@@ -44,16 +46,29 @@ object RoselleLog {
     }
 
     fun flush() {
-        val handler = RoselleLog.handler ?: return
+        val handler = handler ?: return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
             handler.sendEmptyMessage(Callback.WHAT_FLUSH)
         }.onFailure { it.printStackTrace() }
     }
 
+    fun destroy(finish: () -> Unit) {
+        val handler = handler ?: return finish()
+        kotlin.runCatching {
+            if (!callback.alive()) return@runCatching finish()
+            callbackDestroy = finish
+            handler.sendEmptyMessage(Callback.WHAT_DESTROY)
+            return@runCatching
+        }.onFailure {
+            it.printStackTrace()
+            finish()
+        }
+    }
+
     fun path(context: Context): File {
         val cache: File = context.externalCacheDir ?: context.cacheDir
-        val file = File(cache, "${NAMESPACE}${File.separator}roselle.log")
+        val file = File(cache, "$NAMESPACE${File.separator}roselle.log")
         val parent = file.parentFile ?: return file
         if (parent.exists()) return file
         parent.mkdirs()
@@ -76,10 +91,10 @@ object RoselleLog {
         if (!BuildConfig.DEBUG && !allowLevels.contains(level)) return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
-            val handler = RoselleLog.handler ?: return@runCatching
+            val handler = handler ?: return@runCatching
             val block = logsMap[level] ?: return@runCatching
             if (BuildConfig.DEBUG || level == "E") block(tag, value, ex)
-            val fmt = logFmt ?: Format()
+            val fmt = logFmt ?: PrintFormat()
             logFmt = fmt
             val msg = handler.obtainMessage(Callback.WHAT_SINK)
             msg.obj = fmt.of(app, level, tag, value, ex)
@@ -96,6 +111,7 @@ object RoselleLog {
                     WHAT_SETUP -> onSetup(msg)
                     WHAT_SINK -> onSink(msg)
                     WHAT_FLUSH -> Roselle.flush()
+                    WHAT_DESTROY -> onDestroy()
                 }
             }.onFailure { it.printStackTrace() }
             return true
@@ -115,12 +131,18 @@ object RoselleLog {
             Roselle.sink(value, value.length)
         }
 
+        private fun onDestroy() {
+            Roselle.flush()
+            callbackDestroy()
+        }
+
         fun alive(): Boolean = thread?.isAlive == true
 
         companion object {
             const val WHAT_SETUP = 1001
             const val WHAT_SINK = 1002
             const val WHAT_FLUSH = 1003
+            const val WHAT_DESTROY = 1004
         }
     }
 }
