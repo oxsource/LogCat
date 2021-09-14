@@ -1,8 +1,13 @@
 package com.pizzk.logcat.identifier
 
+import com.pizzk.logcat.state.Defaults
+import com.pizzk.logcat.utils.JsonUtils
+import java.util.*
+
 internal object Identifier {
+    private var uuid = ""
     private var alias: String = ""
-    private var ids: String = ""
+    private val device: Device = Device()
 
     fun setAlias(value: String) {
         alias = value
@@ -10,5 +15,17 @@ internal object Identifier {
 
     fun getAlias() = alias
 
-    fun getIds(): String = ids
+    fun uuid(): String {
+        //level 1
+        if (uuid.isNotEmpty()) return uuid
+        //obtain form cache
+        uuid = Defaults.uuid()
+        if (uuid.isNotEmpty()) return uuid
+        //create new
+        uuid = UUID.randomUUID().toString()
+        Defaults.uuid(uuid)
+        return uuid
+    }
+
+    fun device(): Device = device
 }

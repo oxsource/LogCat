@@ -33,4 +33,15 @@ internal object Defaults {
             .putBoolean("reportWhileWifi@plan", plan.reportWhileWifi)
             .apply()
     }
+
+    fun uuid(value: String) {
+        val sp: SharedPreferences = sp() ?: return
+        sp.edit()
+            .putString("uuid@global", value)
+            .apply()
+    }
+
+    fun uuid(): String {
+        return sp()?.getString("uuid@global", "") ?: ""
+    }
 }

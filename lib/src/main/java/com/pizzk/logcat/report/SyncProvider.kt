@@ -5,7 +5,7 @@ import java.io.File
 
 open class SyncProvider {
 
-    open fun fetch(ids: String, alias: String): Plan? = null
+    open fun fetch(params: String): Plan? = null
 
     open fun upload(file: File) = Unit
 }

@@ -1,10 +1,9 @@
 package com.pizzk.logcat.app
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
+import androidx.appcompat.app.AppCompatActivity
 import com.pizzk.logcat.Logcat
-import java.lang.Exception
 
 class MainActivity : AppCompatActivity() {
     private var count: Int = 0

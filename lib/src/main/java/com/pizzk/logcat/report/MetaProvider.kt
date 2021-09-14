@@ -12,11 +12,12 @@ open class MetaProvider {
 
     open fun provide(context: Application): String {
         val map: MutableMap<String, Any> = mutableMapOf()
-        map["ids"] = Identifier.getIds()
+        map["ids"] = Identifier.uuid()
         map["alias"] = Identifier.getAlias()
         map["package"] = context.packageName
         map["version"] = version(context)
         map["device"] = Device()
+        map["memory"] = Device.Memory()
         map["datetime"] = sdf.format(Date())
         hook(map)
         return JsonUtils.json(map)

@@ -4,6 +4,7 @@ import com.pizzk.logcat.identifier.Identifier
 import com.pizzk.logcat.log.Logger
 import com.pizzk.logcat.state.Defaults
 import com.pizzk.logcat.state.States
+import com.pizzk.logcat.utils.JsonUtils
 import com.pizzk.logcat.utils.NetworkStats
 import java.io.BufferedInputStream
 import java.io.File
@@ -20,9 +21,12 @@ internal object Reporter {
     }
 
     fun fetch(): Reporter {
-        val ids = Identifier.getIds()
-        val alias = Identifier.getAlias()
-        val value = syncProvider?.fetch(ids, alias) ?: return this
+        val maps: MutableMap<String, Any> = mutableMapOf()
+        maps["uuid"] = Identifier.uuid()
+        maps["alias"] = Identifier.getAlias()
+        maps["device"] = Identifier.device()
+        val params = JsonUtils.json(maps)
+        val value = syncProvider?.fetch(params) ?: return this
         States.plan().of(value)
         Defaults.savePlan()
         return this
