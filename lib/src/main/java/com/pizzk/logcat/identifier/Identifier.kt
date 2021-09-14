@@ -1,7 +1,6 @@
 package com.pizzk.logcat.identifier
 
 import com.pizzk.logcat.state.Defaults
-import com.pizzk.logcat.utils.JsonUtils
 import java.util.*
 
 internal object Identifier {

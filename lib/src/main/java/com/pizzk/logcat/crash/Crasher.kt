@@ -21,7 +21,7 @@ internal object Crasher {
             val latch = CountDownLatch(1)
             val msg = "${context.packageName} crashed."
             Logcat.e(TAG, msg, exp)
-            Logger.destroy { latch.countDown() }
+            Logger.flush { latch.countDown() }
             Thread {
                 Looper.prepare()
                 hints(context)

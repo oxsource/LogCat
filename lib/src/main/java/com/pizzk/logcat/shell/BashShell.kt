@@ -4,7 +4,6 @@ import com.pizzk.logcat.Logcat
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 
-
 /**
  * Shell脚本
  */
@@ -24,8 +23,10 @@ abstract class BashShell {
         fun <T : BashShell> obtain(clazz: Class<T>): BashShell {
             val shellNil: BashShell? = pools.find { it.javaClass == clazz }
             if (null != shellNil) {
-                pools.remove(shellNil)
                 ++count
+                pools.remove(shellNil)
+                shellNil.seal(value = false)
+                return shellNil
             }
             val shell: BashShell = shellNil ?: clazz.newInstance()
             shell.seal(value = false)

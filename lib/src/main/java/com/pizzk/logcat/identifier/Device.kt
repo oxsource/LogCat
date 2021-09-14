@@ -18,7 +18,7 @@ internal data class Device(
     val version: String = AdbShell.nimble("getprop sys.build.display.id"),
     val kernel: String = AdbShell.nimble("getprop ro.build.kernel.id"),
     val baseBand: String = AdbShell.nimble("getprop gsm.version.baseband"),
-    val netHostname: String = AdbShell.nimble("getprop gsm.net.hostname"),
+    val netHostname: String = AdbShell.nimble("getprop net.hostname"),
 ) {
 
     internal data class Memory(

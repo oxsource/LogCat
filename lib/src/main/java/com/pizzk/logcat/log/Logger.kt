@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.Log
+import com.pizzk.logcat.BuildConfig
 import com.pizzk.logcat.state.States
 import java.io.File
 
@@ -22,7 +23,6 @@ internal object Logger {
     private val convertor = Convertor()
     private var handler: Handler? = null
     private var flushFinish: () -> Unit = {}
-    private var destroyFinish: () -> Unit = {}
 
     private val logMaps: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
         Pair(V, { t, m, e -> Log.v(t, m, e) }),
@@ -32,15 +32,14 @@ internal object Logger {
         Pair(E, { t, m, e -> Log.e(t, m, e) }),
     )
 
-    private fun prepare(setup: Boolean): Handler? {
+    private fun prepare(): Handler? {
         if (!States.plan().loggable) return null
         if (null != handler) return handler
-        if (!setup) return null
         val context: Context = States.context() ?: return null
         return kotlin.runCatching {
             val thread = HandlerThread(NAMESPACE)
-            val handler = Handler(thread.looper, callback)
             thread.start()
+            val handler = Handler(thread.looper, callback)
             val msg = handler.obtainMessage(Callback.WHAT_SETUP)
             msg.obj = path(context).absolutePath
             handler.sendMessage(msg)
@@ -50,24 +49,11 @@ internal object Logger {
     }
 
     fun flush(finish: () -> Unit) {
-        val handler = prepare(setup = false) ?: return finish()
+        val handler = prepare() ?: return finish()
         kotlin.runCatching {
             if (!callback.alive()) return finish()
             flushFinish = finish
             handler.sendEmptyMessage(Callback.WHAT_FLUSH)
-            return@runCatching
-        }.onFailure {
-            it.printStackTrace()
-            finish()
-        }
-    }
-
-    fun destroy(finish: () -> Unit) {
-        val handler = prepare(setup = false) ?: return finish()
-        kotlin.runCatching {
-            if (!callback.alive()) return finish()
-            destroyFinish = finish
-            handler.sendEmptyMessage(Callback.WHAT_DESTROY)
             return@runCatching
         }.onFailure {
             it.printStackTrace()
@@ -87,9 +73,9 @@ internal object Logger {
     fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
         if (tag.isNullOrEmpty() || value.isNullOrEmpty()) return
         logMaps[level]?.let { block -> block(tag, value, ex) }
-        if (!States.plan().logLevels.contains(level)) return
+        if (!BuildConfig.DEBUG && !States.plan().logLevels.contains(level)) return
         val context: Application = States.context() ?: return
-        val handler = prepare(setup = true) ?: return
+        val handler = prepare() ?: return
         kotlin.runCatching {
             if (!callback.alive()) return@runCatching
             val msg = handler.obtainMessage(Callback.WHAT_SINK)
@@ -107,7 +93,6 @@ internal object Logger {
                     WHAT_SETUP -> setup(msg)
                     WHAT_SINK -> sink(msg)
                     WHAT_FLUSH -> flush()
-                    WHAT_DESTROY -> destroy()
                 }
             }.onFailure { it.printStackTrace() }
             return true
@@ -132,18 +117,12 @@ internal object Logger {
             flushFinish()
         }
 
-        private fun destroy() {
-            Roselle.flush()
-            destroyFinish()
-        }
-
         fun alive(): Boolean = thread?.isAlive == true
 
         companion object {
             const val WHAT_SETUP = 1001
             const val WHAT_SINK = 1002
             const val WHAT_FLUSH = 1003
-            const val WHAT_DESTROY = 1004
         }
     }
 }
