@@ -10,6 +10,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Logcat.setAlias("XiaoMing")
         findViewById<View>(R.id.tv).setOnClickListener {
             count += 1
             when (count % 3) {
@@ -26,6 +27,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Logcat.submitIfy()
+        Logcat.flush()
     }
 }

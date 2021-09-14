@@ -6,7 +6,7 @@ import java.util.*
 internal object Identifier {
     private var uuid = ""
     private var alias: String = ""
-    private val device: Device = Device()
+    private val device: Device by lazy { Device() }
 
     fun setAlias(value: String) {
         alias = value

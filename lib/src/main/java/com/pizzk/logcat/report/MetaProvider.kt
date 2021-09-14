@@ -3,6 +3,7 @@ package com.pizzk.logcat.report
 import android.app.Application
 import com.pizzk.logcat.identifier.Device
 import com.pizzk.logcat.identifier.Identifier
+import com.pizzk.logcat.state.States
 import com.pizzk.logcat.utils.JsonUtils
 import java.text.SimpleDateFormat
 import java.util.*
@@ -14,9 +15,9 @@ open class MetaProvider {
         val map: MutableMap<String, Any> = mutableMapOf()
         map["ids"] = Identifier.uuid()
         map["alias"] = Identifier.getAlias()
-        map["package"] = context.packageName
-        map["version"] = version(context)
-        map["device"] = Device()
+        map["package"] = States.name()
+        map["version"] = States.version()
+        map["device"] = Identifier.device()
         map["memory"] = Device.Memory()
         map["datetime"] = sdf.format(Date())
         hook(map)
@@ -24,11 +25,4 @@ open class MetaProvider {
     }
 
     open fun hook(map: MutableMap<String, Any>): Unit = Unit
-
-    private fun version(context: Application): String {
-        return kotlin.runCatching {
-            val info = context.packageManager.getPackageInfo(context.packageName, 0)
-            return info.versionName
-        }.getOrDefault("")
-    }
 }

@@ -16,4 +16,14 @@ internal object States {
     fun context(): Application? = app
 
     fun plan(): Plan = plan
+
+    fun name(): String = app?.packageName ?: ""
+
+    fun version(): String {
+        val context = app ?: return ""
+        return kotlin.runCatching {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            return info.versionName
+        }.getOrDefault("")
+    }
 }

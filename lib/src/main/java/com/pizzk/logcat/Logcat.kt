@@ -8,7 +8,6 @@ import com.pizzk.logcat.log.Logger
 import com.pizzk.logcat.report.MetaProvider
 import com.pizzk.logcat.report.Reporter
 import com.pizzk.logcat.report.SyncProvider
-import com.pizzk.logcat.state.Plan
 import com.pizzk.logcat.state.States
 import org.jetbrains.anko.doAsync
 
@@ -24,18 +23,9 @@ object Logcat {
         if (!States.init(context)) return
         Crasher.setup(config.crashWaits, config.crashHints)
         Reporter.setup(config.reportMetaProvider, config.reportSyncProvider)
-        submitIfy()
     }
 
-    fun version(): String = "1.0"
-
-    fun alias(value: String) = Identifier.setAlias(value)
-
-    fun plan(): Plan = States.plan()
-
-    fun submitIfy() {
-        Logger.flush { doAsync { Reporter.fetch().submit() } }
-    }
+    fun setAlias(value: String) = Identifier.setAlias(value)
 
     fun v(tag: String?, msg: String?, ex: Throwable? = null) = Logger.log(Logger.V, tag, msg, ex)
 
@@ -46,4 +36,8 @@ object Logcat {
     fun w(tag: String?, msg: String?, ex: Throwable? = null) = Logger.log(Logger.W, tag, msg, ex)
 
     fun e(tag: String?, msg: String?, ex: Throwable? = null) = Logger.log(Logger.E, tag, msg, ex)
+
+    fun flush() {
+        Logger.flush { doAsync { Reporter.fetch().submit() } }
+    }
 }

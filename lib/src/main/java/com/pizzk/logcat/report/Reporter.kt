@@ -25,6 +25,8 @@ internal object Reporter {
         maps["uuid"] = Identifier.uuid()
         maps["alias"] = Identifier.getAlias()
         maps["device"] = Identifier.device()
+        maps["package"] = States.name()
+        maps["version"] = States.version()
         val params = JsonUtils.json(maps)
         val value = syncProvider?.fetch(params) ?: return this
         States.plan().of(value)
