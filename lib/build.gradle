@@ -61,4 +61,7 @@ dependencies {
     implementation "com.fasterxml.jackson.core:jackson-core:$jackson"
     implementation "com.fasterxml.jackson.core:jackson-databind:$jackson"
 //    implementation "com.fasterxml.jackson.core:jackson-annotations:$jackson"
+    /**zip*/
+    def zip4j = '2.9.0'
+    implementation "net.lingala.zip4j:zip4j:$zip4j"
 }

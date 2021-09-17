@@ -6,6 +6,8 @@ import java.util.*
 internal object Identifier {
     private var uuid = ""
     private var alias: String = ""
+    private val extras: MutableMap<String, Any> = mutableMapOf()
+
     private val device: Device by lazy { Device() }
 
     fun setAlias(value: String) {
@@ -13,6 +15,20 @@ internal object Identifier {
     }
 
     fun getAlias() = alias
+
+    fun putExtra(key: String, value: Any): Identifier {
+        if (key.isNotEmpty()) extras[key] = value
+        return this
+    }
+
+    fun delExtra(key: String): Identifier {
+        extras.remove(key)
+        return this
+    }
+
+    fun getExtras(): Map<String, Any> {
+        return extras.toMap()
+    }
 
     fun uuid(): String {
         //level 1

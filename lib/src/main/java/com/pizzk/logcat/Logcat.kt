@@ -1,29 +1,39 @@
 package com.pizzk.logcat
 
 import android.app.Application
-import android.content.Context
 import com.pizzk.logcat.crash.Crasher
 import com.pizzk.logcat.identifier.Identifier
 import com.pizzk.logcat.log.Logger
-import com.pizzk.logcat.report.MetaProvider
 import com.pizzk.logcat.report.Reporter
-import com.pizzk.logcat.report.SyncProvider
+import com.pizzk.logcat.state.PlanProvider
 import com.pizzk.logcat.state.States
 import org.jetbrains.anko.doAsync
+import org.jetbrains.anko.uiThread
 
 object Logcat {
-    class Config {
-        var crashHints: (Context) -> Unit = {}
-        var crashWaits: Long = 5
-        var reportMetaProvider: MetaProvider = MetaProvider()
-        var reportSyncProvider: SyncProvider = SyncProvider()
+    class Config(
+        var crashDelayMs: () -> Long = { 0 },
+        var crashTimeoutSec: Long = 5,
+        var planProvider: PlanProvider = PlanProvider(),
+    ) {
+        fun copy(v: Config) {
+            crashDelayMs = v.crashDelayMs
+            crashTimeoutSec = v.crashTimeoutSec
+            planProvider = v.planProvider
+        }
     }
+
+    private val config = Config()
 
     fun with(context: Application, config: Config) {
         if (!States.init(context)) return
-        Crasher.setup(config.crashWaits, config.crashHints)
-        Reporter.setup(config.reportMetaProvider, config.reportSyncProvider)
+        this.config.copy(config)
+        Logger.setup()
+        Crasher.setup()
+        Reporter.startCheck()
     }
+
+    fun config(): Config = config
 
     fun setAlias(value: String) = Identifier.setAlias(value)
 
@@ -37,7 +47,14 @@ object Logcat {
 
     fun e(tag: String?, msg: String?, ex: Throwable? = null) = Logger.log(Logger.E, tag, msg, ex)
 
-    fun flush() {
-        Logger.flush { doAsync { Reporter.fetch().submit() } }
+    fun flush(finish: () -> Unit = {}) {
+        Logger.flush(finish)
+    }
+
+    fun fetch() {
+        doAsync {
+            runCatching { config().planProvider.fetch() }.onFailure { it.printStackTrace() }
+            uiThread { Reporter.startCheck() }
+        }
     }
 }

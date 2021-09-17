@@ -11,9 +11,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         Logcat.setAlias("XiaoMing")
+        Logcat.fetch()
         findViewById<View>(R.id.tv).setOnClickListener {
             count += 1
-            when (count % 3) {
+            when (count % 4) {
                 0 -> Logcat.d("MainActivity", "debug clicked ${count}.", null)
                 1 -> Logcat.e(
                     "MainActivity",
@@ -21,6 +22,7 @@ class MainActivity : AppCompatActivity() {
                     Exception("auto exception")
                 )
                 2 -> Logcat.w("MainActivity", "warn clicked ${count}.", null)
+                3 -> throw Exception("panic")
             }
         }
     }

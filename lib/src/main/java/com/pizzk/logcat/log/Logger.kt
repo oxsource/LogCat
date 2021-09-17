@@ -1,29 +1,26 @@
 package com.pizzk.logcat.log
 
-import android.app.Application
 import android.content.Context
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Message
 import android.util.Log
 import com.pizzk.logcat.BuildConfig
 import com.pizzk.logcat.state.States
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal object Logger {
     private const val NAMESPACE = "roselle-logs"
+
+    //use internal storage, real max use size is three times of <MAX_CACHE_SIZE>
+    private const val MAX_CACHE_SIZE = 5 * 1024 * 1024L
     const val V = "V"
     const val I = "I"
     const val D = "D"
     const val W = "W"
     const val E = "E"
 
-    //private props
-    private val callback = Callback()
     private val convertor = Convertor()
-    private var handler: Handler? = null
-    private var flushFinish: () -> Unit = {}
-
     private val logMaps: Map<String, (String?, String?, Throwable?) -> Unit> = mapOf(
         Pair(V, { t, m, e -> Log.v(t, m, e) }),
         Pair(I, { t, m, e -> Log.i(t, m, e) }),
@@ -31,38 +28,31 @@ internal object Logger {
         Pair(W, { t, m, e -> Log.w(t, m, e) }),
         Pair(E, { t, m, e -> Log.e(t, m, e) }),
     )
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val roselle: AtomicBoolean = AtomicBoolean()
 
-    private fun prepare(): Handler? {
-        if (!States.plan().loggable) return null
-        if (null != handler) return handler
-        val context: Context = States.context() ?: return null
-        return kotlin.runCatching {
-            val thread = HandlerThread(NAMESPACE)
-            thread.start()
-            val handler = Handler(thread.looper, callback)
-            val msg = handler.obtainMessage(Callback.WHAT_SETUP)
-            msg.obj = path(context).absolutePath
-            handler.sendMessage(msg)
-            Logger.handler = handler
-            return@runCatching handler
-        }.onFailure { it.printStackTrace() }.getOrNull()
+    internal fun setup() {
+        if (roselle.get()) return
+        val context: Context = States.context() ?: return
+        executor.submit submit@{
+            kotlin.runCatching {
+                val path = path(context).absolutePath
+                Roselle.setup(path, MAX_CACHE_SIZE)
+                roselle.set(true)
+            }.onFailure { it.printStackTrace() }
+        }
     }
 
-    fun flush(finish: () -> Unit) {
-        val handler = prepare() ?: return finish()
-        kotlin.runCatching {
-            if (!callback.alive()) return finish()
-            flushFinish = finish
-            handler.sendEmptyMessage(Callback.WHAT_FLUSH)
-            return@runCatching
-        }.onFailure {
-            it.printStackTrace()
+    internal fun flush(finish: () -> Unit = {}) {
+        if (!roselle.get()) return finish()
+        executor.submit {
+            kotlin.runCatching { Roselle.flush() }
             finish()
         }
     }
 
-    fun path(context: Context): File {
-        val cache: File = context.externalCacheDir ?: context.cacheDir
+    internal fun path(context: Context): File {
+        val cache: File = context.cacheDir
         val file = File(cache, "$NAMESPACE${File.separator}roselle.log")
         val parent = file.parentFile ?: return file
         if (parent.exists()) return file
@@ -70,59 +60,17 @@ internal object Logger {
         return file
     }
 
-    fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
+    internal fun log(level: String, tag: String?, value: String?, ex: Throwable?) {
         if (tag.isNullOrEmpty() || value.isNullOrEmpty()) return
-        logMaps[level]?.let { block -> block(tag, value, ex) }
-        if (!BuildConfig.DEBUG && !States.plan().logLevels.contains(level)) return
-        val context: Application = States.context() ?: return
-        val handler = prepare() ?: return
-        kotlin.runCatching {
-            if (!callback.alive()) return@runCatching
-            val msg = handler.obtainMessage(Callback.WHAT_SINK)
-            msg.obj = convertor.text(context, level, tag, value, ex)
-            handler.sendMessage(msg)
-        }.onFailure { it.printStackTrace() }
-    }
-
-    private class Callback : Handler.Callback {
-        private var thread: HandlerThread? = null
-
-        override fun handleMessage(msg: Message): Boolean {
+        if (BuildConfig.DEBUG || States.plan().logLevels.contains(level)) {
+            logMaps[level]?.invoke(tag, value, ex)
+        }
+        if (!roselle.get() || !States.plan().loggable()) return
+        executor.submit {
             kotlin.runCatching {
-                when (msg.what) {
-                    WHAT_SETUP -> setup(msg)
-                    WHAT_SINK -> sink(msg)
-                    WHAT_FLUSH -> flush()
-                }
+                val block = convertor.text(level, tag, value, ex)
+                Roselle.sink(block, block.length)
             }.onFailure { it.printStackTrace() }
-            return true
-        }
-
-        private fun setup(msg: Message) {
-            val path: String = (msg.obj as? String) ?: return
-            if (path.isEmpty()) return
-            thread = Thread.currentThread() as? HandlerThread
-            thread ?: return
-            Roselle.setup(path, 5 * 1024 * 1024L)
-        }
-
-        private fun sink(msg: Message) {
-            val value: String = (msg.obj as? String) ?: return
-            if (value.isEmpty()) return
-            Roselle.sink(value, value.length)
-        }
-
-        private fun flush() {
-            Roselle.flush()
-            flushFinish()
-        }
-
-        fun alive(): Boolean = thread?.isAlive == true
-
-        companion object {
-            const val WHAT_SETUP = 1001
-            const val WHAT_SINK = 1002
-            const val WHAT_FLUSH = 1003
         }
     }
 }
