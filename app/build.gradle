@@ -24,7 +24,7 @@ android {
     }
     sourceSets {
         main {
-            jniLibs.srcDirs = ['../lib/build/intermediates/cmake/debug/obj']
+            jniLibs.srcDirs = ['libs']
         }
     }
     compileOptions {
