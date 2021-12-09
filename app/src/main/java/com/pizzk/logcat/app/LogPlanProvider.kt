@@ -1,6 +1,7 @@
 package com.pizzk.logcat.app
 
 import android.app.Application
+import android.os.Environment
 import android.util.Log
 import com.pizzk.logcat.state.Plan
 import com.pizzk.logcat.state.PlanProvider
@@ -21,12 +22,17 @@ class LogPlanProvider : PlanProvider() {
         if (init) return null
         init = true
         plan.reportOnWifi = true
+        plan.id = "Q3Bfp9"
+        plan.name = "SimpleTestPlan"
+        plan.secret = "123456"
         return plan
     }
 
     override fun push(id: String, file: File): Boolean {
         super.push(id, file)
-        file.renameTo(File("${file.absolutePath}.bak"))
+        kotlin.runCatching {
+            file.copyTo(File(Environment.getExternalStorageDirectory(), file.name))
+        }.onFailure { it.printStackTrace() }
         return true
     }
 }

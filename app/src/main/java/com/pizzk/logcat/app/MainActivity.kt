@@ -1,8 +1,10 @@
 package com.pizzk.logcat.app
 
+import android.Manifest
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import com.pizzk.logcat.Logcat
 
 class MainActivity : AppCompatActivity() {

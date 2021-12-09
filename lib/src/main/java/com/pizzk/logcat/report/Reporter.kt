@@ -74,7 +74,8 @@ internal object Reporter {
         if (States.plan().reportOnWifi && NetworkStats.Transport.WIFI != transport) return
         //collect log and meta file
         val fLog: File = Logger.path(context)
-        val zipName = "${States.plan().id}-${States.plan().name}.zip"
+        val name = listOf(States.plan().name, States.plan().id).joinToString(separator = "-")
+        val zipName = "${name}.zip"
         val fZip = File(fLog.absolutePath.replace(fLog.name, zipName))
         if (!fZip.exists() || fZip.length() <= 0) {
             if (!fLog.exists() || fLog.length() <= 0) return
