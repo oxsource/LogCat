@@ -16,6 +16,7 @@ import net.lingala.zip4j.model.enums.CompressionMethod
 import net.lingala.zip4j.model.enums.EncryptionMethod
 import org.jetbrains.anko.doAsync
 import java.io.File
+import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal object Reporter {
@@ -74,8 +75,13 @@ internal object Reporter {
         if (States.plan().reportOnWifi && NetworkStats.Transport.WIFI != transport) return
         //collect log and meta file
         val fLog: File = Logger.path(context)
-        val name = listOf(States.plan().name, States.plan().id).joinToString(separator = "-")
-        val zipName = "${name}.zip"
+        val uuid: () -> String = uuid@{
+            val limit = 8
+            val value = UUID.randomUUID().toString().replace("-", "")
+            return@uuid if (value.length > limit) value.substring(0, limit) else value
+        }
+        val names = arrayOf(States.plan().name, States.plan().id, uuid())
+        val zipName = "${names.joinToString(separator = "_")}.zip"
         val fZip = File(fLog.absolutePath.replace(fLog.name, zipName))
         if (!fZip.exists() || fZip.length() <= 0) {
             if (!fLog.exists() || fLog.length() <= 0) return
