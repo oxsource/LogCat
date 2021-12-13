@@ -6,7 +6,7 @@ import com.pizzk.logcat.state.Defaults
 import kotlin.system.exitProcess
 
 internal object Crasher {
-    private const val TAG = "RoselleCrash"
+    private const val TAG = "Roselle.Crasher"
 
     fun setup() {
         val handler: Thread.UncaughtExceptionHandler? = Thread.getDefaultUncaughtExceptionHandler()

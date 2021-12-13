@@ -10,11 +10,20 @@ import java.math.RoundingMode
 import java.text.DecimalFormat
 
 internal data class Device(
-    val source: String = "ANDROID",
+    val source: String = "android",
     val vendor: String = Build.MANUFACTURER,
     val model: String = Build.MODEL,
     val version: Int = Build.VERSION.SDK_INT
 ) {
+
+    fun map(): Map<String, Any> {
+        val values: MutableMap<String, Any> = mutableMapOf()
+        values["source"] = source
+        values["vendor"] = vendor
+        values["model"] = model
+        values["version"] = version
+        return values
+    }
 
     internal data class Memory(
         var storageTotal: String = "",

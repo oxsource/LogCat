@@ -7,20 +7,14 @@ import com.pizzk.logcat.Logcat
 import com.pizzk.logcat.log.Logger
 import com.pizzk.logcat.state.Defaults
 import com.pizzk.logcat.state.States
-import com.pizzk.logcat.utils.JsonUtils
 import com.pizzk.logcat.utils.NetworkStats
-import net.lingala.zip4j.ZipFile
-import net.lingala.zip4j.model.ZipParameters
-import net.lingala.zip4j.model.enums.CompressionLevel
-import net.lingala.zip4j.model.enums.CompressionMethod
-import net.lingala.zip4j.model.enums.EncryptionMethod
 import org.jetbrains.anko.doAsync
 import java.io.File
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal object Reporter {
-    private const val TAG = "Reporter"
+    private const val TAG = "Roselle.Reporter"
     private val working: AtomicBoolean = AtomicBoolean()
     private val active: AtomicBoolean = AtomicBoolean()
     private val handler: Handler = Handler(Looper.getMainLooper())
@@ -37,6 +31,7 @@ internal object Reporter {
 
     fun startCheck() {
         if (active.get()) return
+        Log.d(TAG, "start check.")
         active.set(true)
         retryControl.reset()
         handler.post(checkCallback)
@@ -44,20 +39,26 @@ internal object Reporter {
 
     fun stopCheck() {
         if (!active.get()) return
+        Log.d(TAG, "stop check.")
         active.set(false)
         handler.removeCallbacks(checkCallback)
     }
 
     private fun intervalCheck(): Boolean {
+        Log.d(TAG, "interval checking...")
         if (States.plan().id.isEmpty()) return false
         if (working.get()) return false
         //use expires control whether submit
         val expires = States.plan().expires
         val stamp = System.currentTimeMillis()
         if (!Defaults.crashed() && stamp - expires < 0) return false
+        Log.d(TAG, "interval check Defaults.crashed or stamp - expires > 0.")
         working.set(true)
         doAsync {
-            runCatching { submit() }.onFailure { it.printStackTrace() }
+            runCatching { submit() }.onFailure {
+                Log.e(TAG, "interval check submit exp: ${it.message}")
+                it.printStackTrace()
+            }
             working.set(false)
         }
         return true
@@ -65,59 +66,32 @@ internal object Reporter {
 
     @Throws(Exception::class)
     private fun submit() {
-        if (States.plan().id.isEmpty()) return
-        Log.d(TAG, "Logcat Reporter try to submit.")
+        Log.d(TAG, "try to submit.")
+        if (States.plan().id.isEmpty()) throw Exception("plan is empty.")
         val delegate = Logcat.config().planProvider
-        val context = States.context() ?: return
+        val context = States.context() ?: throw Exception("States.context is null")
         //network and data flow protect check
         val transport = NetworkStats.check(context)
-        if (NetworkStats.Transport.NONE == transport) return
-        if (States.plan().reportOnWifi && NetworkStats.Transport.WIFI != transport) return
+        if (NetworkStats.Transport.NONE == transport) throw Exception("network disconnect.")
+        if (States.plan().reportOnWifi && NetworkStats.Transport.WIFI != transport) {
+            throw Exception("report must be on wifi network.")
+        }
         //collect log and meta file
-        val fLog: File = Logger.path(context)
-        val uuid: () -> String = uuid@{
-            val limit = 8
-            val value = UUID.randomUUID().toString().replace("-", "")
-            return@uuid if (value.length > limit) value.substring(0, limit) else value
-        }
-        val names = arrayOf(States.plan().name, States.plan().id, uuid())
-        val zipName = "${names.joinToString(separator = "_")}.zip"
-        val fZip = File(fLog.absolutePath.replace(fLog.name, zipName))
-        if (!fZip.exists() || fZip.length() <= 0) {
-            if (!fLog.exists() || fLog.length() <= 0) return
-            val metas: Map<String, Any> = delegate.metas(context)
-            val metasText: String = JsonUtils.json(metas)
-            val fMeta = File("${fLog.absolutePath}.meta")
-            kotlin.runCatching { fMeta.bufferedWriter().use { it.write(metasText) } }
-            val files: List<File> = listOf(fLog, fMeta)
-            //zip files
-            kotlin.runCatching { zips(fZip, files) }.onFailure { fZip.delete() }
-            if (fMeta.exists()) fMeta.delete()
-        }
-        if (!fZip.exists() || fZip.length() <= 0) return
+        val dump = Logger.dump() ?: throw Exception("dump zip file failed.")
         kotlin.runCatching {
-            val success = delegate.push(States.plan().id, fZip)
+            val success = delegate.push(States.plan().id, dump)
             if (!success) return@runCatching
-            Log.d(TAG, "Logcat Reporter submit success")
+            Log.d(TAG, "submit success.")
             //reset states after push success
             Defaults.crashed(value = false)
             States.plan().reset()
             Defaults.savePlan()
-            if (fLog.exists()) fLog.delete()
+            val file: File = Logger.path(context)
+            if (file.exists()) file.delete()
+        }.onFailure {
+            Log.e(TAG, "submit push exp: ${it.message}")
+            it.printStackTrace()
         }
-        if (fZip.exists()) fZip.delete()
-    }
-
-    private fun zips(zipFile: File, files: List<File>) {
-        if (zipFile.exists()) zipFile.delete()
-        val secret = States.plan().secret
-        val params = ZipParameters()
-        params.compressionMethod = CompressionMethod.DEFLATE
-        params.compressionLevel = CompressionLevel.NORMAL
-        params.encryptionMethod = EncryptionMethod.ZIP_STANDARD
-        params.isEncryptFiles = secret.isNotEmpty()
-        val zFile = ZipFile(zipFile, secret.toCharArray())
-        zFile.isRunInThread = false
-        zFile.addFiles(files, params)
+        if (dump.exists()) dump.delete()
     }
 }

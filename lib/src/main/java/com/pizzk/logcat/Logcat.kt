@@ -1,6 +1,7 @@
 package com.pizzk.logcat
 
 import android.app.Application
+import androidx.annotation.WorkerThread
 import com.pizzk.logcat.crash.Crasher
 import com.pizzk.logcat.identifier.Identifier
 import com.pizzk.logcat.log.Logger
@@ -9,6 +10,7 @@ import com.pizzk.logcat.state.PlanProvider
 import com.pizzk.logcat.state.States
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Logcat {
@@ -71,4 +73,8 @@ object Logcat {
             uiThread { Reporter.startCheck() }
         }
     }
+
+    @JvmStatic
+    @WorkerThread
+    fun dump(): File? = Logger.dump()
 }

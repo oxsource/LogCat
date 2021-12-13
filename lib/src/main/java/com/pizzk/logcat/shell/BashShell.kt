@@ -1,6 +1,6 @@
 package com.pizzk.logcat.shell
 
-import com.pizzk.logcat.Logcat
+import android.util.Log
 import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 
@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock
  */
 abstract class BashShell {
     companion object {
-        private const val TAG = "BashShell"
+        private const val TAG = "Roselle.BashShell"
 
         //shell池
         private val pools: MutableList<BashShell> = LinkedList()
@@ -87,7 +87,7 @@ abstract class BashShell {
         try {
             block()
         } catch (e: Exception) {
-            Logcat.e(TAG, "catcher", e)
+            Log.e(TAG, "catcher", e)
             e.printStackTrace()
         }
         //@formatter:on

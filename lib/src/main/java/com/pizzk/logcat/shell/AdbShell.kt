@@ -1,7 +1,7 @@
 package com.pizzk.logcat.shell
 
 
-import com.pizzk.logcat.Logcat
+import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -9,7 +9,7 @@ import java.util.regex.Pattern
 
 class AdbShell : BashShell() {
     companion object {
-        private const val TAG = "AdbShell"
+        private const val TAG = "Roselle.AdbShell"
         private const val PROGRAM = "/system/bin/sh"
         private const val PARAMS = "-c"
 
@@ -61,7 +61,7 @@ class AdbShell : BashShell() {
             true
         } catch (e: Exception) {
             disconnect()
-            Logcat.e(TAG, "$name read exception: ${e.message}")
+            Log.e(TAG, "$name read exception: ${e.message}")
             e.printStackTrace()
             false
         }
@@ -77,7 +77,7 @@ class AdbShell : BashShell() {
             null != process
         } catch (e: Exception) {
             disconnect()
-            Logcat.e(TAG, "$name write exception: ${e.message}")
+            Log.e(TAG, "$name write exception: ${e.message}")
             e.printStackTrace()
             false
         }
@@ -88,22 +88,22 @@ class AdbShell : BashShell() {
         return try {
             lock.lock()
             if (!connect()) {
-                Logcat.d(TAG, "$name is busy")
+                Log.d(TAG, "$name is busy")
                 return error
             }
-            Logcat.d(TAG, "$name write command: $cmd")
+            Log.d(TAG, "$name write command: $cmd")
             if (!write(cmd)) {
-                if (retry) Logcat.e(TAG, "$name write command failed, reconnect!")
+                if (retry) Log.e(TAG, "$name write command failed, reconnect!")
                 return if (retry) execute(cmd, retry = false) else error
             }
             val buf = StringBuffer()
             read(buf)
             val result: String = buf.toString()
             buf.setLength(0)
-            Logcat.d(TAG, "$name read result: $result")
+            Log.d(TAG, "$name read result: $result")
             result
         } catch (e: Exception) {
-            Logcat.d(TAG, "$name execute exception: ${e.message}")
+            Log.d(TAG, "$name execute exception: ${e.message}")
             error
         } finally {
             disconnect()

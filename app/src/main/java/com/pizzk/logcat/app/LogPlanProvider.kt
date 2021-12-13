@@ -23,8 +23,9 @@ class LogPlanProvider : PlanProvider() {
         init = true
         plan.reportOnWifi = true
         plan.id = "Q3Bfp9"
-        plan.name = "SimpleTestPlan"
+        plan.name = "TestPlan"
         plan.secret = "123456"
+        plan.expires = Long.MAX_VALUE
         return plan
     }
 

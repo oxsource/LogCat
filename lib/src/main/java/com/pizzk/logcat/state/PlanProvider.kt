@@ -1,6 +1,7 @@
 package com.pizzk.logcat.state
 
 import android.app.Application
+import android.util.Log
 import com.pizzk.logcat.identifier.Device
 import com.pizzk.logcat.identifier.Identifier
 import java.io.File
@@ -11,6 +12,7 @@ import kotlin.jvm.Throws
 
 open class PlanProvider {
     companion object {
+        private const val TAG = "Roselle.PlanProvider"
         const val KEY_DEVICE = "device"
         const val KEY_UUID = "uuid"
         const val KEY_ALIAS = "alias"
@@ -37,12 +39,15 @@ open class PlanProvider {
     fun fetch() {
         val maps: MutableMap<String, Any> = mutableMapOf()
         maps.putAll(Identifier.getExtras())
-        maps[KEY_DEVICE] = Identifier.device()
+        val devices = Identifier.device().map()
+        devices.forEach { e -> maps["${KEY_DEVICE}.${e.key}"] = e.value }
         maps[KEY_UUID] = Identifier.uuid()
         maps[KEY_PACKAGE] = States.name()
         maps[KEY_VERSION] = States.version()
         maps[KEY_ALIAS] = Identifier.getAlias()
+        Log.d(TAG, "fetch params: $maps")
         val value = pull(maps) ?: return
+        Log.d(TAG, "fetch plan: ${value.id}@${value.name}")
         States.plan().of(value)
         Defaults.savePlan()
     }
