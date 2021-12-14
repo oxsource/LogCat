@@ -27,5 +27,15 @@ afterEvaluate {
                 }
             }
         }
+        repositories {
+            maven {
+                name "coding"
+                url codingArtifactsRepoUrl
+                credentials {
+                    username codingArtifactsGradleUsername
+                    password codingArtifactsGradlePassword
+                }
+            }
+        }
     }
 }
