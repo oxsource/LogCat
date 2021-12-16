@@ -86,8 +86,9 @@ internal object Reporter {
             Defaults.crashed(value = false)
             States.plan().reset()
             Defaults.savePlan()
-            val file: File = Logger.path(context)
-            if (file.exists()) file.delete()
+            //remove Logger.NAMESPACE dir
+            val file: File = Logger.path(context).parentFile ?: return@runCatching
+            if (file.exists()) file.deleteRecursively()
         }.onFailure {
             Log.e(TAG, "submit push exp: ${it.message}")
             it.printStackTrace()

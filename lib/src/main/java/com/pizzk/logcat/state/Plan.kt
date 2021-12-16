@@ -35,6 +35,6 @@ data class Plan(
 
     fun loggable(): Boolean {
         if (id.isEmpty()) return false
-        return expires - System.currentTimeMillis() <= 0
+        return expires - System.currentTimeMillis() > 0
     }
 }
