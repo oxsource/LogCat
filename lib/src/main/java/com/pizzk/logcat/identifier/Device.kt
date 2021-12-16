@@ -32,22 +32,21 @@ internal data class Device(
         var memFree: String = "",
     ) {
 
-        private val hsFormat: DecimalFormat = DecimalFormat("#.0")
-
         init {
+            val hsFormat = DecimalFormat("#.0")
             hsFormat.roundingMode = RoundingMode.HALF_UP
             val sf = StatFs(Environment.getDataDirectory().path)
-            storageTotal = hs(sf.blockCountLong * sf.blockSizeLong)
-            storageFree = hs(sf.availableBytes)
+            storageTotal = hs(hsFormat, sf.blockCountLong * sf.blockSizeLong)
+            storageFree = hs(hsFormat, sf.availableBytes)
             val obj = States.context()?.getSystemService(Context.ACTIVITY_SERVICE)
             val am = obj as? ActivityManager
             val info = ActivityManager.MemoryInfo()
             am?.getMemoryInfo(info)
-            memTotal = hs(info.totalMem)
-            memFree = hs(info.availMem)
+            memTotal = hs(hsFormat, info.totalMem)
+            memFree = hs(hsFormat, info.availMem)
         }
 
-        private fun hs(size: Long): String {
+        private fun hs(hsFormat: DecimalFormat, size: Long): String {
             if (size <= 0) return "0B"
             val radix = 1000
             if (size <= radix) return "${size}B"

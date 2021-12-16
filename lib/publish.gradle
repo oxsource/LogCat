@@ -10,7 +10,7 @@ afterEvaluate {
                 from components.release
                 groupId = 'com.pizzk.logcat'
                 artifactId = 'logcat'
-                version = '1.0.0'
+                version = '1.0.1'
 
                 artifact generateSourceJar
 

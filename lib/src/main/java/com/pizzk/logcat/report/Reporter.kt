@@ -53,13 +53,17 @@ internal object Reporter {
         val stamp = System.currentTimeMillis()
         if (!Defaults.crashed() && stamp - expires < 0) return false
         Log.d(TAG, "interval check Defaults.crashed or stamp - expires > 0.")
-        working.set(true)
-        doAsync {
-            runCatching { submit() }.onFailure {
-                Log.e(TAG, "interval check submit exp: ${it.message}")
-                it.printStackTrace()
-            }
+        val failure: (Throwable) -> Unit = { it ->
+            Log.e(TAG, "interval check submit exp: ${it.message}")
+            it.printStackTrace()
+        }
+        val execute: () -> Unit = {
+            runCatching(::submit).onFailure(failure)
             working.set(false)
+        }
+        Logger.flush {
+            working.set(true)
+            doAsync { execute() }
         }
         return true
     }
@@ -86,8 +90,9 @@ internal object Reporter {
             Defaults.crashed(value = false)
             States.plan().reset()
             Defaults.savePlan()
-            val file: File = Logger.path(context)
-            if (file.exists()) file.delete()
+            //remove Logger.NAMESPACE dir
+            val file: File = Logger.path(context).parentFile ?: return@runCatching
+            if (file.exists()) file.deleteRecursively()
         }.onFailure {
             Log.e(TAG, "submit push exp: ${it.message}")
             it.printStackTrace()
