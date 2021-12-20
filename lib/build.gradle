@@ -51,9 +51,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
-    /**网络请求库*/
-    def ok_http = '3.14.9'
-    implementation "com.squareup.okhttp3:okhttp:$ok_http"
     /**Anko*/
     def anko = '0.10.5'
     implementation "org.jetbrains.anko:anko-commons:$anko"
